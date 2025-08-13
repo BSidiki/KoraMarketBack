@@ -59,6 +59,13 @@ public class SecurityConfig {
                         // Refunds (souvent staff/admin)
                         .requestMatchers(HttpMethod.POST, "/api/refunds/**")
                         .hasAnyAuthority("ADMIN","REFUND_CREATE")
+
+                        .requestMatchers(HttpMethod.GET, "/api/orders/*/addresses", "/api/orders/*/addresses/**")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
+
+                        // Upsert (create/update) addresses for an order
+                        .requestMatchers(HttpMethod.POST, "/api/orders/*/addresses", "/api/orders/*/addresses/**")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_EDIT_OWN","ORDER_EDIT_ANY")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
