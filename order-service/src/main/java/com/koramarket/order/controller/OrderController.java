@@ -25,25 +25,27 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<OrderResponseDTO> create(@Valid @RequestBody OrderRequestDTO req,
                                                    Authentication auth,
-                                                   @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
-                                                   @RequestAttribute(value = "userIdExt", required = false) UUID userIdFromJwt) {
+                                                   @RequestHeader(value = "Idempotency-Key", required = false) String idemKey,
+                                                   @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,      // fallback Postman
+                                                   @RequestAttribute(value = "userIdExt", required = false) UUID userIdFromJwt) {   // posé par filtre JWT
         if (auth == null || !auth.isAuthenticated()) {
             throw new BusinessException("Authentification requise");
         }
 
-        // 1) Si ton filtre JWT a déjà posé le userId: on priorise
+        // 1) Priorité au userId extrait du JWT par le filtre
         UUID userIdExt = userIdFromJwt;
 
-        // 2) Sinon, on accepte le header temporaire X-User-Id (UUID)
+        // 2) Fallback temporaire: header X-User-Id (UUID)
         if (userIdExt == null) {
             userIdExt = parseUuidOrNull(userIdHeader);
         }
 
         if (userIdExt == null) {
-            throw new BusinessException("X-User-Id requis (temporaire)");
+            // Message aligné avec le service
+            throw new BusinessException("Identifiant utilisateur manquant");
         }
 
-        OrderResponseDTO dto = orderService.create(req, userIdExt);
+        OrderResponseDTO dto = orderService.create(req, userIdExt, idemKey);
         return ResponseEntity.created(URI.create("/api/orders/" + dto.getId())).body(dto);
     }
 
@@ -55,9 +57,9 @@ public class OrderController {
         if (auth == null || !auth.isAuthenticated()) {
             throw new BusinessException("Authentification requise");
         }
-        UUID userIdExt = userIdFromJwt != null ? userIdFromJwt : parseUuidOrNull(userIdHeader);
+        UUID userIdExt = (userIdFromJwt != null) ? userIdFromJwt : parseUuidOrNull(userIdHeader);
         if (userIdExt == null) {
-            throw new BusinessException("X-User-Id requis (temporaire)");
+            throw new BusinessException("Identifiant utilisateur manquant");
         }
         return orderService.myOrders(userIdExt);
     }
@@ -82,10 +84,10 @@ public class OrderController {
         boolean isAdminOrAny = auth.getAuthorities().stream().anyMatch(ga ->
                 "ROLE_ADMIN".equals(ga.getAuthority()) || "ORDER_CANCEL_ANY".equals(ga.getAuthority()));
 
-        UUID userIdExt = userIdFromJwt != null ? userIdFromJwt : parseUuidOrNull(userIdHeader);
+        UUID userIdExt = (userIdFromJwt != null) ? userIdFromJwt : parseUuidOrNull(userIdHeader);
         if (userIdExt == null && !isAdminOrAny) {
-            // si admin/ORDER_CANCEL_ANY, on peut autoriser sans userId; sinon on exige l'owner
-            throw new BusinessException("X-User-Id requis (temporaire)");
+            // si admin/ORDER_CANCEL_ANY, on peut autoriser sans owner
+            throw new BusinessException("Identifiant utilisateur manquant");
         }
         orderService.cancelOwn(id, userIdExt, isAdminOrAny);
         return ResponseEntity.ok().build();

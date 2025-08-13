@@ -69,4 +69,13 @@ public class Order {
     }
     @PreUpdate
     void preUpdate() { updatedAt = Instant.now(); }
+
+    @Column(name = "idempotency_key", length = 80)
+    private String idempotencyKey;
+
+    public void setIdempotencyKey(String s) {
+        this.idempotencyKey = (s == null || s.isBlank()) ? null : s.trim();
+    }
+
+    public String getIdempotencyKey() { return idempotencyKey; }
 }

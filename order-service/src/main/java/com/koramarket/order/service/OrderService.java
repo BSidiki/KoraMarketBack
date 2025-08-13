@@ -10,6 +10,7 @@ import com.koramarket.order.model.OrderItem;
 import com.koramarket.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,13 +30,21 @@ public class OrderService {
     private BigDecimal defaultTaxRate;
 
     @Transactional
-    public OrderResponseDTO create(OrderRequestDTO req, UUID userIdExt) {
-        if (userIdExt == null) throw new BusinessException("Utilisateur requis");
+    public OrderResponseDTO create(OrderRequestDTO req, UUID userIdExt, String idemKey) {
+        // --- Validations d’entrée ---
+        if (userIdExt == null) throw new BusinessException("Identifiant utilisateur manquant");
         if (req.getItems() == null || req.getItems().isEmpty()) {
             throw new BusinessException("La commande doit contenir au moins un article");
         }
 
-        // 0) Entête
+        // Idempotence: si la clé existe déjà, renvoyer l’ordre existant
+        String trimmedKey = (idemKey == null || idemKey.isBlank()) ? null : idemKey.trim();
+        if (trimmedKey != null) {
+            var existing = orderRepo.findByIdempotencyKey(trimmedKey);
+            if (existing.isPresent()) return OrderMapper.toResponse(existing.get());
+        }
+
+        // --- Entête ---
         Order o = Order.builder()
                 .id(UUID.randomUUID())
                 .orderNumber(generateOrderNumber())
@@ -48,6 +57,7 @@ public class OrderService {
                 .shippingTotalAmount(0L)
                 .discountTotalAmount(0L)
                 .grandTotalAmount(0L)
+                .idempotencyKey(trimmedKey) // ⚠️ mettre AVANT le 1er save
                 .build();
 
         long subtotal = 0L;
@@ -73,25 +83,26 @@ public class OrderService {
             }
 
             // 3) Prix & totaux
-            long unitCents = toCents(p.getPrix());                 // BigDecimal -> centimes
+            long unitCents = toCents(p.getPrix());                  // BigDecimal -> centimes
             long lineNet   = mulExact(unitCents, it.getQuantity()); // protège overflow
             long tax       = calcTax(lineNet, defaultTaxRate);
 
-            // 4) Ligne
+            // 4) Ligne (snapshots)
             OrderItem item = OrderItem.builder()
                     .id(UUID.randomUUID())
                     .productIdExt(it.getProductId())
                     .productNameSnap(p.getNom())
-                    .productSkuSnap(nvlBlank(p.preferredSku(), "PRD-" + it.getProductId())) // fallback
-                    .productImageSnap(nvlBlank(p.preferredImage(), null))                   // pas de chaîne vide
+                    .productSkuSnap(nvlBlank(p.preferredSku(), "PRD-" + it.getProductId()))
+                    .productImageSnap(nvlBlank(p.preferredImage(), null)) // null si manquante
                     .vendorEmailSnap(p.getVendeurEmail())
-                    .vendorIdExt(p.getVendeurId())                                         // <-- AJOUT IMPORTANT
+                    .vendorIdExt(p.getVendeurId())
                     .unitPriceAmount(unitCents)
                     .quantity(it.getQuantity())
                     .taxAmount(tax)
                     .lineTotalAmount(lineNet + tax)
                     .build();
-            item.setOrder(o);
+
+            item.setOrder(o);   // FK non nulle
             items.add(item);
 
             subtotal += lineNet;
@@ -104,8 +115,18 @@ public class OrderService {
         o.setTaxTotalAmount(taxTotal);
         o.setGrandTotalAmount(subtotal + taxTotal + o.getShippingTotalAmount() - o.getDiscountTotalAmount());
 
-        // 6) Persist & map
-        o = orderRepo.save(o);
+        // 6) Persist & idempotence forte
+        try {
+            o = orderRepo.save(o); // unique index sur idempotency_key protège la 2e requête
+        } catch (DataIntegrityViolationException e) {
+            // Collision d’idempotence: renvoyer l’existante
+            if (trimmedKey != null) {
+                return orderRepo.findByIdempotencyKey(trimmedKey)
+                        .map(OrderMapper::toResponse)
+                        .orElseThrow(() -> e);
+            }
+            throw e;
+        }
         return OrderMapper.toResponse(o);
     }
 
@@ -175,10 +196,5 @@ public class OrderService {
 
     private static String nvlBlank(String v, String orElse) {
         return (v == null || v.isBlank()) ? orElse : v;
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String v : values) if (v != null && !v.isBlank()) return v;
-        return null;
     }
 }
