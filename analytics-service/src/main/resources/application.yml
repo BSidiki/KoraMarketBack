@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: analytics-service
+  flyway:
+    enabled: false
+  config:
+    import:
+      - optional:configserver:http://localhost:8888
+      - optional:classpath:db-common.yml  # Ajoutez 'optional:'
+
+#spring:
+#  application:
+#    name: analytics-service
+#
+#  config:
+#    import: optional:configserver:http://localhost:8888
+#
+#  cloud:
+#    config:
+#      uri: http://localhost:8888/
+#      name: common,db-common,analytics-service
+#
+#  logging:
+#    level:
+#      root: INFO
+#      org.springframework.web: DEBUG
+#      org.hibernate.SQL: DEBUG
+#      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+#

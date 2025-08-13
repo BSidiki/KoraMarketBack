@@ -1,0 +1,11 @@
+com\koramarket\commande\model\Commande$CommandeBuilder.class
+com\koramarket\commande\repository\CommandeItemRepository.class
+com\koramarket\commande\repository\PaymentRepository.class
+com\koramarket\commande\model\Payment$PaymentBuilder.class
+com\koramarket\commande\model\Commande.class
+com\koramarket\commande\model\CommandeItem.class
+com\koramarket\commande\repository\CommandeRepository.class
+com\koramarket\commande\model\Payment.class
+com\koramarket\commande\model\CommandeStatus.class
+com\koramarket\commande\model\CommandeItem$CommandeItemBuilder.class
+com\koramarket\commande\model\PaymentMethod.class

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.koramarket</groupId>
+        <artifactId>KoraMarketBack</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>gateway-service</artifactId>
+    <name>gateway-service</name>
+    <description>API Gateway pour KoraMarket</description>
+
+    <properties>
+        <spring.main.web-application-type>reactive</spring.main.web-application-type>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Cloud Gateway -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <exclusions>
+                <!-- Exclusion de Tomcat qui pourrait apporter des conflits -->
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- WebFlux (Netty) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- Service Discovery -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- Configuration Client -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
+
+        <!-- Circuit Breaker -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!-- Exclusion de toutes les dépendances MVC potentielles -->
+                        <exclude>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-starter-web</artifactId>
+                        </exclude>
+                        <exclude>
+                            <groupId>org.springframework</groupId>
+                            <artifactId>spring-webmvc</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

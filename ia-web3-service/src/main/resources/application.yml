@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: ia-web3-service
+  flyway:
+    enabled: false
+  config:
+    import:
+      - optional:configserver:http://localhost:8888
+      - optional:classpath:db-common.yml  # Ajoutez 'optional:'
+
+#spring:
+#  application:
+#    name: ia-web3
+#
+#  config:
+#    import: optional:configserver:http://localhost:8888
+#
+#  cloud:
+#    config:
+#      uri: http://localhost:8888/
+#      name: common,db-common,ia-web3
+#
+#  logging:
+#    level:
+#      root: INFO
+#      org.springframework.web: DEBUG
+#      org.hibernate.SQL: DEBUG
+#      org.hibernate.type.descriptor.sql.BasicBinder: TRACE

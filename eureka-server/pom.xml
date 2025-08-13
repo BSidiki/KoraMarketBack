@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.koramarket</groupId>
+        <artifactId>KoraMarketBack</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>eureka-server</artifactId>
+    <name>eureka-server</name>
+    <description>Service Discovery Eureka pour KoraMarket</description>
+
+    <properties>
+        <!-- Configuration spécifique Eureka -->
+        <eureka.server.wait-time-in-ms-when-sync-empty>0</eureka.server.wait-time-in-ms-when-sync-empty>
+        <eureka.server.enable-self-preservation>false</eureka.server.enable-self-preservation>
+    </properties>
+
+    <dependencies>
+        <!-- Eureka Server -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+        </dependency>
+
+        <!-- Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Actuator -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <eureka.server.enable-self-preservation>true</eureka.server.enable-self-preservation>
+            </properties>
+        </profile>
+        <profile>
+            <id>ha</id>
+            <properties>
+                <eureka.client.service-url.defaultZone>http://eureka2:8762/eureka/,http://eureka3:8763/eureka/</eureka.client.service-url.defaultZone>
+            </properties>
+        </profile>
+    </profiles>
+</project>

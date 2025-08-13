@@ -1,0 +1,32 @@
+server:
+  address: localhost
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/BSidiki/koramarket-config-repo
+          default-label: main
+          clone-on-start: true
+          force-pull: true
+        bootstrap: true
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include : '*'
+  info:
+    env:
+      enabled: true

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.koramarket</groupId>
+        <artifactId>KoraMarketBack</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>config-server</artifactId>
+    <name>config-server</name>
+    <description>Spring Cloud Config Server pour KoraMarket</description>
+
+    <properties>
+        <!-- Propriétés spécifiques au config-server -->
+        <spring.cloud.config.server.git.uri>${user.home}/config-repo</spring.cloud.config.server.git.uri>
+    </properties>
+
+    <dependencies>
+        <!-- Config Server -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-server</artifactId>
+        </dependency>
+
+        <!-- Service Discovery -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- Web (nécessaire pour Config Server) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Actuator (pour les endpoints de gestion) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Sécurité optionnelle (à décommenter si nécessaire) -->
+        <!--
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plugin Spring Boot -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <!-- Exclure les dépendances inutiles en production -->
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <spring.cloud.config.server.git.uri>file://${project.basedir}/src/main/resources/config-repo</spring.cloud.config.server.git.uri>
+            </properties>
+        </profile>
+    </profiles>
+</project>
