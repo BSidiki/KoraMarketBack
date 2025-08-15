@@ -30,6 +30,10 @@ management:
     env:
       enabled: true
 
+logging:
+  level:
+    audit.invoice: INFO
+
 company:
   name: "Kora Market"
   rc: "RCCM: BF-OUA-2025-A-12345"
@@ -37,5 +41,6 @@ company:
   address: "Zone du Bois, Ouagadougou, BF"
   phone: "+226 70 00 00 00"
   email: "support@koramarket.com"
-  logo-url: "https://example.com/logo.png" # facultatif
+  #logo-url: "https://example.com/logo.png" # facultatif
+  logo-url: file:///D:/AES/Doc/KoraMarketBack/Documentations/logo.png
   website: "https://www.koramarket.com" # facultatif

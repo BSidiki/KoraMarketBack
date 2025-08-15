@@ -23,6 +23,7 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepo;
     private final OrderRepository orderRepo;
+    private final OutboxService outboxService;
 
     // base publique pour construire l'URL (mettre ton domaine Gateway en prod)
     @org.springframework.beans.factory.annotation.Value("${invoice.public-base-url:}")
@@ -57,7 +58,22 @@ public class InvoiceService {
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // collision très improbable -> on régénère et retente une fois
             inv.setInvoiceNumber(generateInvoiceNumber());
-            return invoiceRepo.save(inv);
+//            return invoiceRepo.save(inv);
+            var saved = invoiceRepo.save(inv);
+            try {
+                outboxService.publish(
+                        "INVOICE_ISSUED",
+                        java.util.Map.of(
+                                "invoiceId", saved.getId().toString(),
+                                "invoiceNumber", saved.getInvoiceNumber(),
+                                "orderId", o.getId().toString(),
+                                "amount", o.getGrandTotalAmount(),
+                                "currency", o.getCurrency()
+                        ),
+                        o.getId()
+                );
+            } catch (Exception ignore) { /* ne bloque pas la facturation */ }
+            return saved;
         }
     }
 
