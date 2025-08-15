@@ -6,6 +6,20 @@ spring:
   config:
     import:
       - optional:configserver:http://localhost:8888
+
+  mail:
+    host: smtp.example.com
+    port: 587
+    username: user
+    password: pass
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+invoice:
+  mail:
+    to-debug: "client@example.com" # temporaire si tu n’as pas l’email client
+
 management:
   endpoints:
     web:
@@ -15,3 +29,13 @@ management:
   info:
     env:
       enabled: true
+
+company:
+  name: "Kora Market"
+  rc: "RCCM: BF-OUA-2025-A-12345"
+  ifu: "IFU: 0000000001234"
+  address: "Zone du Bois, Ouagadougou, BF"
+  phone: "+226 70 00 00 00"
+  email: "support@koramarket.com"
+  logo-url: "https://example.com/logo.png" # facultatif
+  website: "https://www.koramarket.com" # facultatif

@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +28,9 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepo;
     private final OrderRepository orderRepo;
-    private final InvoiceService invoiceService;
+    private final InvoiceService invoiceService;         // ✅ déjà présent
+    private final InvoicePdfService invoicePdfService;   // ✅ INJECTE ICI
+    private final MailService mailService;
 
     @Transactional
     public PaymentResponseDTO createIntent(PaymentRequestDTO req,
@@ -44,26 +48,19 @@ public class PaymentService {
         Order o = orderRepo.findById(req.getOrderId())
                 .orElseThrow(() -> new BusinessException("Commande introuvable"));
 
-        // ownership / droits
         if (!isPrivileged && !o.getUserIdExt().equals(userIdExt)) {
             throw new BusinessException("Accès interdit à cette commande");
         }
 
-        // états autorisés pour initier un paiement
         Set<String> allowed = Set.of("PENDING", "AWAITING_PAYMENT");
-        if (!allowed.contains(o.getOrderStatus())) {
-            throw new BusinessException("Commande non payable à ce stade");
-        }
-        if ("PAID".equalsIgnoreCase(o.getPaymentStatus())) {
-            throw new BusinessException("Commande déjà payée");
-        }
+        if (!allowed.contains(o.getOrderStatus())) throw new BusinessException("Commande non payable à ce stade");
+        if ("PAID".equalsIgnoreCase(o.getPaymentStatus())) throw new BusinessException("Commande déjà payée");
 
         long amount = o.getGrandTotalAmount() == null ? 0L : o.getGrandTotalAmount();
         String currency = (req.getCurrency() == null || req.getCurrency().isBlank())
                 ? o.getCurrency()
                 : req.getCurrency().trim().toUpperCase();
 
-        // Simuler un provider: on autorise immédiatement (AUTHORIZED)
         Payment p = Payment.builder()
                 .id(UUID.randomUUID())
                 .order(o)
@@ -73,13 +70,12 @@ public class PaymentService {
                 .amountCaptured(0L)
                 .currency(currency)
                 .idempotencyKey(key)
-                .externalTransactionId(null) // à remplir si vrai provider
+                .externalTransactionId(null)
                 .authorizedAt(Instant.now())
                 .build();
 
-        try {
-            p = paymentRepo.save(p);
-        } catch (DataIntegrityViolationException e) {
+        try { p = paymentRepo.save(p); }
+        catch (DataIntegrityViolationException e) {
             if (key != null) {
                 return paymentRepo.findByIdempotencyKey(key)
                         .map(PaymentMapper::toResponse)
@@ -88,9 +84,7 @@ public class PaymentService {
             throw e;
         }
 
-        // Mettre à jour l’état de la commande (toujours en attente de capture)
         o.setPaymentStatus("AUTHORIZED");
-
         return PaymentMapper.toResponse(p);
     }
 
@@ -101,27 +95,43 @@ public class PaymentService {
         Payment p = paymentRepo.findById(paymentId)
                 .orElseThrow(() -> new BusinessException("Paiement introuvable"));
 
+        // Idempotence: si déjà capturé, on renvoie tel quel
+        if (p.getStatus() == PaymentState.CAPTURED) {
+            return PaymentMapper.toResponse(p);
+        }
+        // Sinon, doit être AUTHORIZED
         if (p.getStatus() != PaymentState.AUTHORIZED) {
             throw new BusinessException("Paiement non capturable");
         }
 
+        // 1) MAJ paiement
         p.setStatus(PaymentState.CAPTURED);
         p.setAmountCaptured(p.getAmountAuthorized());
         p.setCapturedAt(Instant.now());
+        paymentRepo.save(p); // ✅ explicite
 
-        // Maj commande -> PAID
+        // 2) MAJ commande
         Order o = p.getOrder();
         o.setPaymentStatus("PAID");
         if (List.of("PENDING","AWAITING_PAYMENT","AUTHORIZED").contains(o.getOrderStatus())) {
-            o.setOrderStatus("AWAITING_FULFILLMENT"); // prêt à expédier
+            o.setOrderStatus("AWAITING_FULFILLMENT");
         }
-        invoiceService.ensureForOrder(o);
-        if (p.getStatus() == PaymentState.CAPTURED) {
-            return PaymentMapper.toResponse(p); // idempotent: 200 OK
-        }
-        if (p.getStatus() != PaymentState.AUTHORIZED) {
-            throw new BusinessException("Paiement non capturable");
-        }
+
+        // 3) Facture (idempotent) + envoi email APRES COMMIT
+        var inv = invoiceService.ensureForOrder(o);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                try {
+                    byte[] pdf = invoicePdfService.renderByInvoiceId(inv.getId());
+                    mailService.sendInvoice(inv, pdf, java.util.List.of()); // to = debug si vide
+                } catch (Exception e) {
+                    org.slf4j.LoggerFactory.getLogger(getClass())
+                            .warn("Envoi PDF KO: {}", e.toString());
+                }
+            }
+        });
+
         return PaymentMapper.toResponse(p);
     }
 

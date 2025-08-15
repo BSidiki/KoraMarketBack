@@ -1,6 +1,7 @@
 com\koramarket\order\model\AddressType.class
 com\koramarket\order\model\OrderItem.class
 com\koramarket\order\security\JwtAuthenticationFilter.class
+com\koramarket\order\controller\InvoiceQueryController.class
 com\koramarket\order\client\ProductClient.class
 com\koramarket\order\config\RestClientConfig.class
 com\koramarket\order\security\SecurityConfig.class
@@ -18,6 +19,7 @@ com\koramarket\order\model\Payment.class
 com\koramarket\order\dto\OrderResponseDTO.class
 com\koramarket\order\controller\PaymentController.class
 com\koramarket\order\dto\ProductSummary.class
+com\koramarket\order\service\PaymentService$1.class
 com\koramarket\order\OrderServiceApplication.class
 com\koramarket\order\dto\ProductSummary$ImageResource.class
 com\koramarket\order\repository\OrderRepository.class
@@ -26,13 +28,17 @@ com\koramarket\order\repository\PaymentRepository.class
 com\koramarket\order\dto\OrderRequestDTO.class
 com\koramarket\order\repository\InvoiceRepository.class
 com\koramarket\order\service\OrderService.class
+com\koramarket\order\service\CreditNoteService.class
 com\koramarket\order\mapper\OrderAddressMapper.class
 com\koramarket\order\model\Order.class
 com\koramarket\order\repository\OrderAddressRepository.class
 com\koramarket\order\controller\OrderController.class
 com\koramarket\order\controller\InvoiceFileController.class
+com\koramarket\order\repository\CreditNoteRepository.class
+com\koramarket\order\model\CreditNote$CreditNoteBuilder.class
 com\koramarket\order\controller\InvoiceController.class
 com\koramarket\order\service\OrderAddressService.class
+com\koramarket\order\service\MailService.class
 com\koramarket\order\dto\OrderRequestDTO$Item.class
 com\koramarket\order\mapper\OrderMapper.class
 com\koramarket\order\dto\OrderResponseDTO$Item.class
@@ -40,6 +46,7 @@ com\koramarket\order\model\Invoice$InvoiceBuilder.class
 com\koramarket\order\model\OrderAddress.class
 com\koramarket\order\model\OrderItem$OrderItemBuilder.class
 com\koramarket\order\dto\PaymentRequestDTO.class
+com\koramarket\order\model\CreditNote.class
 com\koramarket\order\controller\OrderAddressController.class
 com\koramarket\order\model\Invoice.class
 com\koramarket\order\dto\OrderAddressRequestDTO.class

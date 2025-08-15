@@ -44,8 +44,11 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/orders/*/invoice")
                         .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
 
-                        // ---- Invoices PDF ----
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invoices/*/pdf")
+                        // Invoices JSON
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invoices/by-number/*")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
+                        // Invoices PDF
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invoices/*/pdf", "/api/invoices/by-number/*/pdf")
                         .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
 
                         // ---- orders ----

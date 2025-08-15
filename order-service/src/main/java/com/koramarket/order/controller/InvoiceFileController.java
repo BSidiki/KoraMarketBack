@@ -46,6 +46,30 @@ public class InvoiceFileController {
         return new ResponseEntity<>(pdf, h, HttpStatus.OK);
     }
 
+    // (dans InvoiceFileController existant)
+    @GetMapping("/by-number/{invoiceNumber}/pdf")
+    public ResponseEntity<byte[]> getPdfByNumber(@PathVariable String invoiceNumber,
+                                                 Authentication auth,
+                                                 @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+                                                 @RequestAttribute(value = "userIdExt", required = false) java.util.UUID userIdFromJwt) {
+        ensureAuth(auth);
+        boolean isPrivileged = hasAnyAuthority(auth, "ADMIN", "ORDER_READ_ANY", "ORDER_EDIT_ANY");
+        var inv = invoiceRepo.findByInvoiceNumber(invoiceNumber)
+                .orElseThrow(() -> new com.koramarket.common.exceptions.BusinessException("Facture introuvable"));
+        var owner = inv.getOrder().getUserIdExt();
+        java.util.UUID userIdExt = (userIdFromJwt != null) ? userIdFromJwt : parseUuidOrNull(userIdHeader);
+        if (!isPrivileged && (userIdExt == null || !owner.equals(userIdExt))) {
+            throw new com.koramarket.common.exceptions.BusinessException("Accès interdit à cette facture");
+        }
+        byte[] pdf = pdfService.renderByInvoiceId(inv.getId());
+        org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
+        h.set(org.springframework.http.HttpHeaders.CACHE_CONTROL, "private, max-age=300");
+        h.setContentType(org.springframework.http.MediaType.APPLICATION_PDF);
+        h.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=" + inv.getInvoiceNumber() + ".pdf");
+        return new org.springframework.http.ResponseEntity<>(pdf, h, org.springframework.http.HttpStatus.OK);
+    }
+
+
     private static void ensureAuth(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) throw new BusinessException("Authentification requise");
     }
