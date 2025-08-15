@@ -1,8 +1,9 @@
 // CreditNoteService.java
 package com.koramarket.order.service;
 
-import com.koramarket.order.model.*;
 import com.koramarket.common.exceptions.BusinessException;
+import com.koramarket.order.model.CreditNote;
+import com.koramarket.order.model.Invoice;
 import com.koramarket.order.repository.CreditNoteRepository;
 import com.koramarket.order.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;

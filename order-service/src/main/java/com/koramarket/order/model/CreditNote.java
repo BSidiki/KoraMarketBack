@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "credit_notes")
+@Table(name = "credit_notes", schema = "order_service")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CreditNote {
     @Id @Column(columnDefinition = "uuid") private UUID id;

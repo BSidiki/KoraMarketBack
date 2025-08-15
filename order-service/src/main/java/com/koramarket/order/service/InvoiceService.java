@@ -42,39 +42,41 @@ public class InvoiceService {
     }
 
     private Invoice createNew(Order o) {
-        // On génère l'ID nous-mêmes pour pouvoir construire l'URL (sinon PrePersist le ferait)
-        java.util.UUID newId = java.util.UUID.randomUUID();
+        UUID newId = UUID.randomUUID();
 
         Invoice inv = Invoice.builder()
                 .id(newId)
                 .order(o)
                 .invoiceNumber(generateInvoiceNumber())
                 .status(InvoiceStatus.ISSUED)
-                .urlPdf(buildInvoiceUrl(newId))     // ✅ on renseigne l’URL ici
+                .urlPdf(buildInvoiceUrl(newId))
                 .build();
 
+        Invoice saved;
         try {
-            return invoiceRepo.save(inv);
+            saved = invoiceRepo.save(inv);                      // ✅ chemin normal
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // collision très improbable -> on régénère et retente une fois
+            // collision très improbable -> régénère et retente une fois
             inv.setInvoiceNumber(generateInvoiceNumber());
-//            return invoiceRepo.save(inv);
-            var saved = invoiceRepo.save(inv);
-            try {
-                outboxService.publish(
-                        "INVOICE_ISSUED",
-                        java.util.Map.of(
-                                "invoiceId", saved.getId().toString(),
-                                "invoiceNumber", saved.getInvoiceNumber(),
-                                "orderId", o.getId().toString(),
-                                "amount", o.getGrandTotalAmount(),
-                                "currency", o.getCurrency()
-                        ),
-                        o.getId()
-                );
-            } catch (Exception ignore) { /* ne bloque pas la facturation */ }
-            return saved;
+            saved = invoiceRepo.save(inv);
         }
+
+        // ✅ publier dans l’outbox (quoi qu’il arrive)
+        try {
+            outboxService.publish(
+                    "INVOICE_ISSUED",
+                    java.util.Map.of(
+                            "invoiceId", saved.getId().toString(),
+                            "invoiceNumber", saved.getInvoiceNumber(),
+                            "orderId", o.getId().toString(),
+                            "amount", o.getGrandTotalAmount(),
+                            "currency", o.getCurrency()
+                    ),
+                    o.getId()
+            );
+        } catch (Exception ignore) { /* ne bloque pas la facturation */ }
+
+        return saved;
     }
 
     private String buildInvoiceUrl(java.util.UUID invoiceId) {
