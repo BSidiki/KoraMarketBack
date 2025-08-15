@@ -40,7 +40,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
-                        // Orders (lecture publique si tu veux? en général non)
+                        // ---- Invoices ----
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/orders/*/invoice")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
+
+                        // ---- Invoices PDF ----
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invoices/*/pdf")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
+
+                        // ---- orders ----
                         .requestMatchers(HttpMethod.POST, "/api/orders/**")
                         .hasAnyAuthority("CLIENT","ORDER_CREATE")
                         .requestMatchers(HttpMethod.GET, "/api/orders/my/**")
@@ -51,10 +59,17 @@ public class SecurityConfig {
                         .hasAnyAuthority("ADMIN","ORDER_CANCEL_ANY","ORDER_CANCEL_OWN")
 
                         // Payments
-                        .requestMatchers(HttpMethod.POST, "/api/payments/**")
-                        .hasAnyAuthority("CLIENT","PAYMENT_INIT")
+                        // 1) Capture (règle spécifique AVANT la règle générique)
                         .requestMatchers(HttpMethod.POST, "/api/payments/*/capture")
-                        .hasAnyAuthority("ADMIN","PAYMENT_CAPTURE")
+                        .hasAnyAuthority("SUPER_ADMIN", "PAYMENT_CAPTURE")
+
+                        // 2) Création d'intent
+                        .requestMatchers(HttpMethod.POST, "/api/payments")
+                        .hasAnyAuthority("CLIENT", "PAYMENT_INIT")
+
+                        // 3) Éventuels autres POST /api/payments/** (si tu en ajoutes)
+                        .requestMatchers(HttpMethod.POST, "/api/payments/**")
+                        .hasAnyAuthority("CLIENT", "PAYMENT_INIT")
 
                         // Refunds (souvent staff/admin)
                         .requestMatchers(HttpMethod.POST, "/api/refunds/**")
@@ -66,6 +81,13 @@ public class SecurityConfig {
                         // Upsert (create/update) addresses for an order
                         .requestMatchers(HttpMethod.POST, "/api/orders/*/addresses", "/api/orders/*/addresses/**")
                         .hasAnyAuthority("CLIENT","ADMIN","ORDER_EDIT_OWN","ORDER_EDIT_ANY")
+
+                        // Upsert (create/update) addresses for an order by number
+                        .requestMatchers(HttpMethod.GET,  "/api/orders/by-number/*/addresses/**")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_READ_OWN","ORDER_READ_ANY")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/by-number/*/addresses/**")
+                        .hasAnyAuthority("CLIENT","ADMIN","ORDER_EDIT_OWN","ORDER_EDIT_ANY")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

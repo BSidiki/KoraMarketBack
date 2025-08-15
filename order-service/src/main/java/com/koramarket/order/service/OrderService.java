@@ -135,6 +135,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public Optional<UUID> findIdByOrderNumber(String orderNumber) {
+        if (orderNumber == null || orderNumber.isBlank()) return Optional.empty();
+        return orderRepo.findByOrderNumber(orderNumber.trim()).map(Order::getId);
+    }
+
+    @Transactional(readOnly = true)
     public List<OrderResponseDTO> myOrders(UUID userIdExt) {
         return orderRepo.findByUserIdExtOrderByCreatedAtDesc(userIdExt)
                 .stream().map(OrderMapper::toResponse).toList();

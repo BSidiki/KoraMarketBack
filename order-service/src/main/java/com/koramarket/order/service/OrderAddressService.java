@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -59,6 +60,10 @@ public class OrderAddressService {
         o.setGrandTotalAmount(o.getSubtotalAmount() + o.getTaxTotalAmount() + shipping - o.getDiscountTotalAmount());
 
         return OrderAddressMapper.toResponse(a);
+    }
+
+    public Optional<UUID> findIdByOrderNumber(String on) {
+        return orderRepo.findByOrderNumber(on).map(Order::getId);
     }
 
     private long computeShipping(Order o) {

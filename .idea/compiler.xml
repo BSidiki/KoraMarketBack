@@ -25,8 +25,8 @@
         <module name="analytics-service" />
         <module name="product-service" />
         <module name="ia-web3-service" />
-        <module name="order-service" />
         <module name="common-lib" />
+        <module name="order-service" />
         <module name="eureka-server" />
         <module name="notification-service" />
       </profile>
