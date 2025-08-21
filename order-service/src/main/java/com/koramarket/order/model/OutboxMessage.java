@@ -3,6 +3,8 @@ package com.koramarket.order.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,8 +21,9 @@ public class OutboxMessage {
     @Column(length = 100, nullable = false)
     private String topic;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
-    private String payload; // JSON string
+    private java.util.Map<String, Object> payload;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)

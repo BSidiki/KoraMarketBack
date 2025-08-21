@@ -7,6 +7,11 @@ import com.koramarket.product.model.Category;
 import com.koramarket.product.model.Product;
 import lombok.experimental.UtilityClass;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+
 @UtilityClass
 public class ProductMapper {
 
@@ -40,6 +45,10 @@ public class ProductMapper {
         dto.setCategoryNom(product.getCategory() != null ? product.getCategory().getNom() : null);
         dto.setDateCreation(product.getDateCreation());
         // imageUrl/sku non fournis ici
+
+        String prixAffiche = fmtUnits(product.getPrix());       // "275 000"
+        dto.setPrixAffiche(prixAffiche);
+        dto.setPrixAfficheXof(prixAffiche + " XOF");
         return dto;
     }
 
@@ -49,5 +58,14 @@ public class ProductMapper {
         dto.setImageUrl(imageUrl);
         dto.setSku(sku);
         return dto;
+    }
+
+    private static String fmtUnits(BigDecimal amount) {
+        if (amount == null) return "0";
+        BigDecimal rounded = amount.setScale(0, BigDecimal.ROUND_HALF_UP); // ✅ compatible partout
+        DecimalFormatSymbols sym = new DecimalFormatSymbols(Locale.FRANCE);
+        sym.setGroupingSeparator('\u202F'); // espace fine insécable
+        DecimalFormat df = new DecimalFormat("#,##0", sym);
+        return df.format(rounded);
     }
 }

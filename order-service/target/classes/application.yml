@@ -44,3 +44,8 @@ company:
   #logo-url: "https://example.com/logo.png" # facultatif
   logo-url: file:///D:/AES/Doc/KoraMarketBack/Documentations/logo.png
   website: "https://www.koramarket.com" # facultatif
+
+
+clients:
+  product:
+    base-url: http://localhost:8082

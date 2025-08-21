@@ -48,6 +48,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
 
+                        .requestMatchers(HttpMethod.POST, "/api/products/stock/reserve", "/api/products/stock/release")
+                        .hasAnyAuthority("ADMIN","ORDER_SERVICE","ORDER_CREATE", "CLIENT")
+
                         // GET spécifique AVANT règle générale
                         .requestMatchers(HttpMethod.GET, "/api/products/my-products")
                         .hasAnyAuthority("ROLE_ADMIN","ROLE_VENDEUR","PRODUCT_READ") // ou garde uniquement les rôles si tu préfères

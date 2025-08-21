@@ -2,13 +2,17 @@ package com.koramarket.order.service;
 
 import com.koramarket.common.exceptions.BusinessException;
 import com.koramarket.order.client.ProductClient;
+import com.koramarket.order.client.ProductInventoryClient;
 import com.koramarket.order.dto.OrderRequestDTO;
 import com.koramarket.order.dto.OrderResponseDTO;
 import com.koramarket.order.mapper.OrderMapper;
 import com.koramarket.order.model.Order;
 import com.koramarket.order.model.OrderItem;
 import com.koramarket.order.repository.OrderRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -25,6 +29,7 @@ public class OrderService {
 
     private final OrderRepository orderRepo;
     private final ProductClient productClient;
+    private final ProductInventoryClient productInventoryClient;
 
     @Value("${order.tax.default-rate:0}")       // ex: 18.0 = 18%
     private BigDecimal defaultTaxRate;
@@ -57,25 +62,22 @@ public class OrderService {
                 .shippingTotalAmount(0L)
                 .discountTotalAmount(0L)
                 .grandTotalAmount(0L)
-                .idempotencyKey(trimmedKey) // ⚠️ mettre AVANT le 1er save
+                .idempotencyKey(trimmedKey) // ⚠️ avant le 1er save (contrainte unique)
                 .build();
 
         long subtotal = 0L;
         long taxTotal = 0L;
-        List<OrderItem> items = new ArrayList<>();
+        var items = new ArrayList<OrderItem>();
 
         for (var it : req.getItems()) {
             // 1) Lookup produit
             var p = productClient.getById(it.getProductId());
-            if (p == null) {
-                throw new BusinessException("Produit introuvable: " + it.getProductId());
-            }
+            if (p == null) throw new BusinessException("Produit introuvable: " + it.getProductId());
 
             // 2) Disponibilité & stock
             String status = normalize(p.getStatut());
             if (!SELLABLE.contains(status)) {
-                throw new BusinessException("Produit non disponible: " + p.getNom()
-                        + " (statut reçu: " + p.getStatut() + ")");
+                throw new BusinessException("Produit non disponible: " + p.getNom() + " (statut: " + p.getStatut() + ")");
             }
             if (p.getStock() != null && p.getStock() < it.getQuantity()) {
                 throw new BusinessException("Stock insuffisant pour: " + p.getNom()
@@ -83,8 +85,8 @@ public class OrderService {
             }
 
             // 3) Prix & totaux
-            long unitCents = toCents(p.getPrix());                  // BigDecimal -> centimes
-            long lineNet   = mulExact(unitCents, it.getQuantity()); // protège overflow
+            long unitCents = toCents(p.getPrix());
+            long lineNet   = mulExact(unitCents, it.getQuantity());
             long tax       = calcTax(lineNet, defaultTaxRate);
 
             // 4) Ligne (snapshots)
@@ -93,7 +95,7 @@ public class OrderService {
                     .productIdExt(it.getProductId())
                     .productNameSnap(p.getNom())
                     .productSkuSnap(nvlBlank(p.preferredSku(), "PRD-" + it.getProductId()))
-                    .productImageSnap(nvlBlank(p.preferredImage(), null)) // null si manquante
+                    .productImageSnap(nvlBlank(p.preferredImage(), null))
                     .vendorEmailSnap(p.getVendeurEmail())
                     .vendorIdExt(p.getVendeurId())
                     .unitPriceAmount(unitCents)
@@ -102,7 +104,7 @@ public class OrderService {
                     .lineTotalAmount(lineNet + tax)
                     .build();
 
-            item.setOrder(o);   // FK non nulle
+            item.setOrder(o);
             items.add(item);
 
             subtotal += lineNet;
@@ -115,11 +117,40 @@ public class OrderService {
         o.setTaxTotalAmount(taxTotal);
         o.setGrandTotalAmount(subtotal + taxTotal + o.getShippingTotalAmount() - o.getDiscountTotalAmount());
 
-        // 6) Persist & idempotence forte
+        // 6) Réservation de stock (synchrone, idempotente par orderId)
+        var reserveReq = new ProductInventoryClient.ReserveStockRequestDTO();                // ✅ nom de DTO côté client
+        reserveReq.setOrderId(o.getId());
+        var lines = new ArrayList<ProductInventoryClient.ReserveStockRequestDTO.Line>();
+        for (var it : req.getItems()) {
+            var l = new ProductInventoryClient.ReserveStockRequestDTO.Line();                // ✅ instanciation correcte
+            l.setProductId(it.getProductId());
+            l.setQuantity(it.getQuantity());
+            lines.add(l);
+        }
+        reserveReq.setLines(lines);
+
         try {
-            o = orderRepo.save(o); // unique index sur idempotency_key protège la 2e requête
+            productInventoryClient.reserve(reserveReq);
+        } catch (FeignException e) {
+            int st = e.status();
+            String body = e.contentUTF8(); // message JSON/texte renvoyé par product-service
+            if (st == 409 || st == 400) {
+                throw new BusinessException((body != null && !body.isBlank()) ? body : "Stock insuffisant");
+            }
+            if (st == 401 || st == 403) {
+                throw new BusinessException("Accès refusé au service stock (" + st + ")");
+            }
+            throw new BusinessException("Erreur service stock (" + st + ")");
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception ex) {
+            throw new BusinessException("Réservation de stock indisponible, réessayez plus tard");
+        }
+
+        // 7) Persist & idempotence forte
+        try {
+            o = orderRepo.save(o);
         } catch (DataIntegrityViolationException e) {
-            // Collision d’idempotence: renvoyer l’existante
             if (trimmedKey != null) {
                 return orderRepo.findByIdempotencyKey(trimmedKey)
                         .map(OrderMapper::toResponse)
@@ -127,6 +158,7 @@ public class OrderService {
             }
             throw e;
         }
+
         return OrderMapper.toResponse(o);
     }
 
@@ -153,17 +185,45 @@ public class OrderService {
 
     @Transactional
     public void cancelOwn(UUID id, UUID userIdExt, boolean isAdminOrAny) {
+        Logger log = LoggerFactory.getLogger(getClass());
+
         Order o = orderRepo.findById(id)
                 .orElseThrow(() -> new BusinessException("Commande introuvable"));
 
         if (!isAdminOrAny && !o.getUserIdExt().equals(userIdExt)) {
             throw new BusinessException("Vous ne pouvez annuler que vos propres commandes");
         }
-        if (!List.of("PENDING", "AWAITING_PAYMENT", "PAID").contains(o.getOrderStatus())) {
+
+        // Idempotence : déjà annulée
+        if ("CANCELED".equalsIgnoreCase(o.getOrderStatus())) {
+            return;
+        }
+
+        // Autoriser l'annulation uniquement avant le fulfillment / shipping
+        Set<String> cancellable = Set.of("PENDING", "AWAITING_PAYMENT", "AWAITING_FULFILLMENT");
+        if (!cancellable.contains(o.getOrderStatus())) {
             throw new BusinessException("Commande non annulable à ce stade");
         }
+
+        // Marquer la commande annulée
         o.setOrderStatus("CANCELED");
+
+        // Si le paiement n'est pas payé, on peut marquer l'état paiement annulé (optionnel)
+        if (!"PAID".equalsIgnoreCase(o.getPaymentStatus())) {
+            o.setPaymentStatus("CANCELED");
+        }
+
+        // Libérer la réservation de stock (idempotent côté product-service)
+        try {
+            var rel = new ProductInventoryClient.ReleaseStockRequest();
+            rel.setOrderId(o.getId());
+            productInventoryClient.release(rel);
+        } catch (Exception e) {
+            // Ne bloque pas l'annulation ; on pourra re-tenter via un job si besoin
+            log.warn("Release stock KO for orderId={}: {}", o.getId(), e.toString());
+        }
     }
+
 
     /* -------------------- Helpers -------------------- */
 

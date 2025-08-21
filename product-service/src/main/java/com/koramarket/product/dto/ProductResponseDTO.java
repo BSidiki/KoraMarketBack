@@ -12,6 +12,8 @@ public class ProductResponseDTO {
     private String nom;
     private String description;
     private BigDecimal prix;
+    private String prixAffiche;        // ex: "275 000"
+    private String prixAfficheXof;     // ex: "275 000 XOF" (optionnel)
     private Integer stock;
     private String statut;
     private Long categoryId;
