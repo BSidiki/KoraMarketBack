@@ -6,6 +6,7 @@ import com.koramarket.product.dto.ProductResponseDTO;
 import com.koramarket.product.mappper.ProductMapper;
 import com.koramarket.product.model.Category;
 import com.koramarket.product.model.Product;
+import com.koramarket.product.model.ProductImage;
 import com.koramarket.product.repository.CategoryRepository;
 import com.koramarket.product.repository.ProductImageRepository;
 import com.koramarket.product.repository.ProductRepository;
@@ -27,7 +28,6 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository imageRepo;
-
     /* =========================
        Helpers sécurité
        ========================= */
@@ -177,6 +177,67 @@ public class ProductService {
         String sku = (hasSku(p) ? p.getSku() : null);
 
         return ProductMapper.toResponse(p, defaultImageUrl, sku);
+    }
+
+    public String preferredImageUrl(Long productId) {
+        return imageRepo.findFirstByProduct_IdAndIsDefaultTrueOrderByIdAsc(productId)
+                .or(() -> imageRepo.findFirstByProduct_IdOrderByIdAsc(productId))
+                .map(ProductImage::getUrlImage)
+                .orElse(null);
+    }
+
+    public String preferredSku(Product p) {
+        String s = p.getSku();
+        if (s != null && !s.isBlank()) return s.trim();
+        return "PRD-" + p.getId();
+    }
+
+    // ---- B) Endpoints de lecture (DTO enrichi) ----
+    public List<ProductResponseDTO> findAllResponses() {
+        return productRepository.findAll().stream().map(p ->
+                com.koramarket.product.mappper.ProductMapper.toResponse(
+                        p,
+                        preferredImageUrl(p.getId()),
+                        preferredSku(p)
+                )
+        ).toList();
+    }
+
+    public Optional<ProductResponseDTO> findResponseById(Long id) {
+        return productRepository.findById(id).map(p ->
+                com.koramarket.product.mappper.ProductMapper.toResponse(
+                        p,
+                        preferredImageUrl(p.getId()),
+                        preferredSku(p)
+                )
+        );
+    }
+
+    public List<ProductResponseDTO> findByCategoryResponses(Long categoryId) {
+        return productRepository.findByCategoryId(categoryId).stream().map(p ->
+                com.koramarket.product.mappper.ProductMapper.toResponse(
+                        p,
+                        preferredImageUrl(p.getId()),
+                        preferredSku(p)
+                )
+        ).toList();
+    }
+
+    public List<ProductResponseDTO> findByStatusResponses(ProductStatus s) {
+        return productRepository.findByStatut(s).stream().map(p ->
+                com.koramarket.product.mappper.ProductMapper.toResponse(
+                        p,
+                        preferredImageUrl(p.getId()),
+                        preferredSku(p)
+                )
+        ).toList();
+    }
+
+    // ---- C) Création/MàJ : penser à remplir vendeurId & vendeurEmail ----
+    public Product save(Product entity, java.util.UUID vendeurId, String vendeurEmail) {
+        entity.setVendeurId(vendeurId);
+        entity.setVendeurEmail(vendeurEmail);
+        return productRepository.save(entity);
     }
 
     // Helper pour éviter l’erreur de compilation si Product n’a pas sku

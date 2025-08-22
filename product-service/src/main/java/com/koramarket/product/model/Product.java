@@ -6,7 +6,6 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "produits", schema = "product_service")
@@ -51,7 +50,7 @@ public class Product {
     private String vendeurEmail;
 
     @Column(name = "vendeur_id", columnDefinition = "uuid")
-    private UUID vendeurId;
+    private java.util.UUID vendeurId;
 
     @PrePersist
     public void prePersist() {

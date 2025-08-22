@@ -7,5 +7,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CreditNoteRepository extends JpaRepository<CreditNote, UUID> {
-    Optional<CreditNote> findTopByInvoice_IdOrderByCreatedAtDesc(UUID invoiceId);
+    Optional<CreditNote> findByRefund_Id(UUID refundId);
+    Optional<CreditNote> findByCreditNumber(String creditNumber);
 }

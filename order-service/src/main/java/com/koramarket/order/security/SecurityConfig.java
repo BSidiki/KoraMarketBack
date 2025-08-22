@@ -91,6 +91,20 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/orders/by-number/*/addresses/**")
                         .hasAnyAuthority("CLIENT","ADMIN","ORDER_EDIT_OWN","ORDER_EDIT_ANY")
 
+                        // Shipments
+                        .requestMatchers(HttpMethod.POST, "/api/shipments").hasAnyAuthority("ADMIN","ORDER_FULFILL","VENDEUR")
+                        .requestMatchers(HttpMethod.POST, "/api/shipments/*/events").hasAnyAuthority("ADMIN","ORDER_FULFILL","VENDEUR")
+                        .requestMatchers(HttpMethod.GET,  "/api/shipments/by-order/**").hasAnyAuthority("ADMIN","ORDER_READ_ANY","ORDER_FULFILL","CLIENT")
+
+                        // Refunds
+                        .requestMatchers(HttpMethod.POST, "/api/refunds/**").hasAnyAuthority("ADMIN","REFUND_CREATE")
+                        .requestMatchers(HttpMethod.GET,  "/api/refunds/**").hasAnyAuthority("ADMIN","REFUND_CREATE","ORDER_READ_ANY")
+
+                        // Credit Notes
+                        .requestMatchers(HttpMethod.GET, "/api/credit-notes/**")
+                        .hasAnyAuthority("ADMIN","ORDER_READ_ANY","ORDER_EDIT_ANY","CLIENT")
+
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

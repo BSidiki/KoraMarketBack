@@ -51,7 +51,7 @@ public class ProductController {
        Public GET
        ========================= */
 
-    @GetMapping
+    /*@GetMapping
     public List<ProductResponseDTO> getAllProducts() {
         // Liste simple (non enrichie avec image/sku). OK pour catalogue / recherche.
         return productService.findAll().stream()
@@ -83,7 +83,7 @@ public class ProductController {
         return productService.findByStatus(s).stream()
                 .map(ProductMapper::toResponse)
                 .collect(Collectors.toList());
-    }
+    }*/
 
     /* =========================
        Protégés (roles/perms vus par SecurityConfig)
@@ -97,7 +97,7 @@ public class ProductController {
                 .collect(Collectors.toList());
     }
 
-    @PostMapping
+    /*@PostMapping
     public ResponseEntity<ProductResponseDTO> createProduct(@RequestBody ProductRequestDTO dto) {
         // Résolution éventuelle de la catégorie (le service revalide aussi)
         Category category = null;
@@ -110,7 +110,32 @@ public class ProductController {
         // Le service forcera vendeurEmail = utilisateur courant + vérifiera les permissions
         Product saved = productService.save(entity);
         return ResponseEntity.ok(ProductMapper.toResponse(saved));
+    }*/
+
+    @PostMapping
+    public ResponseEntity<ProductResponseDTO> createProduct(@RequestBody ProductRequestDTO dto,
+                                                            Authentication auth,
+                                                            @RequestAttribute(value = "userIdExt", required = false) java.util.UUID userIdFromJwt) {
+        if (auth == null || !auth.isAuthenticated()) throw new BusinessException("Authentification requise");
+        var vendeurId = userIdFromJwt; // ou récupère depuis ton filtre JWT
+        var vendeurEmail = auth.getName(); // selon ton principal
+
+        Category category = null;
+        if (dto.getCategoryId() != null) {
+            category = productService.findCategory(dto.getCategoryId())
+                    .orElseThrow(() -> new BusinessException("Catégorie introuvable: " + dto.getCategoryId()));
+        }
+
+        Product entity = ProductMapper.toEntity(dto, category);
+        Product saved = productService.save(entity, vendeurId, vendeurEmail);
+
+        // réponse enrichie
+        var resp = ProductMapper.toResponse(saved,
+                productService.preferredImageUrl(saved.getId()),
+                productService.preferredSku(saved));
+        return ResponseEntity.ok(resp);
     }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<ProductResponseDTO> updateProduct(@PathVariable Long id,
@@ -124,6 +149,29 @@ public class ProductController {
         Product patch = ProductMapper.toEntity(dto, category);
         Product updated = productService.updateProduct(id, patch);
         return ResponseEntity.ok(ProductMapper.toResponse(updated));
+    }
+
+    @GetMapping
+    public List<ProductResponseDTO> getAllProducts() {
+        return productService.findAllResponses(); // ✅ enrichi
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductResponseDTO> getProductById(@PathVariable Long id) {
+        return productService.findResponseById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/by-category/{categoryId}")
+    public List<ProductResponseDTO> getByCategory(@PathVariable Long categoryId) {
+        return productService.findByCategoryResponses(categoryId); // ✅
+    }
+
+    @GetMapping("/by-status/{status}")
+    public List<ProductResponseDTO> getByStatus(@PathVariable String status) {
+        ProductStatus s = parseStatusOrThrow(status);
+        return productService.findByStatusResponses(s); // ✅
     }
 
     @DeleteMapping("/{id}")

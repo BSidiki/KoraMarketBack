@@ -36,7 +36,6 @@ public class ProductMapper {
         dto.setDescription(product.getDescription());
         dto.setPrix(product.getPrix());
         dto.setStock(product.getStock());
-//        dto.setImageUrl(defaultImageUrl);
         dto.setSku(product.getSku());         // ou null si pas de champ
         dto.setVendeurEmail(product.getVendeurEmail());
         dto.setVendeurId(product.getVendeurId());
