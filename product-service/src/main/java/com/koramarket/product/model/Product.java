@@ -58,5 +58,4 @@ public class Product {
         if (this.statut == null) this.statut = ProductStatus.DISPONIBLE;
     }
 
-    // Bonus : pour extension images, attributs, avis...
 }
